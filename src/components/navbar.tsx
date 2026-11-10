@@ -3,9 +3,22 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Menu, User, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LogOut, Menu, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authClient } from "@/lib/auth-client";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -14,15 +27,40 @@ const navLinks = [
   { label: "add Destination", href: "/add-destination" },
 ];
 
+// Shown in the navbar when the visitor is NOT signed in.
 const authLinks = [
-  { label: "Profile", href: "/profile", icon: User },
-  { label: "Login", href: "/login" },
+  { label: "Log In", href: "/login" },
   { label: "Sign Up", href: "/signup" },
 ];
 
 export function Navbar() {
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  const initials = (
+    user?.name ??
+    user?.email ??
+    "U"
+  )
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await authClient.signOut();
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+      setMenuOpen(false);
+    }
+  }
 
   const linkClasses = (href: string, className?: string) =>
     cn(
@@ -76,25 +114,77 @@ export function Navbar() {
           />
         </Link>
 
-        {/* Desktop: auth links on the right */}
+        {/* Desktop: avatar + popover when signed in, links when not */}
         <nav className="hidden items-center gap-7 md:flex">
-          {authLinks.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              className={cn(
-                linkClasses(link.href, "text-sm"),
-                link.label === "Sign Up" && "font-semibold text-zinc-900",
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                {link.icon ? (
-                  <link.icon className="size-4" aria-hidden />
-                ) : null}
+          {user ? (
+            <Popover>
+              <PopoverTrigger
+                aria-label="Open user menu"
+                className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <Avatar size="default">
+                  {user.image ? (
+                    <AvatarImage src={user.image} alt={user.name ?? "User"} />
+                  ) : null}
+                  <AvatarFallback className="bg-brand/10 text-sm font-semibold text-brand">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64">
+                <div className="flex items-center gap-3 px-1.5 pt-1.5">
+                  <Avatar size="default">
+                    {user.image ? (
+                      <AvatarImage src={user.image} alt={user.name ?? "User"} />
+                    ) : null}
+                    <AvatarFallback className="bg-brand/10 text-sm font-semibold text-brand">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <PopoverTitle className="truncate text-sm">
+                      {user.name ?? "Signed in"}
+                    </PopoverTitle>
+                    <PopoverDescription className="truncate text-xs">
+                      {user.email}
+                    </PopoverDescription>
+                  </div>
+                </div>
+                <div className="h-px bg-border" />
+                <nav className="flex flex-col gap-0.5">
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+                  >
+                    <User className="size-4" />
+                    Profile
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <LogOut className="size-4" />
+                    {loggingOut ? "Logging out..." : "Log out"}
+                  </button>
+                </nav>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            authLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className={cn(
+                  linkClasses(link.href, "text-sm"),
+                  link.label === "Sign Up" && "font-semibold text-zinc-900",
+                )}
+              >
                 {link.label}
-              </span>
-            </Link>
-          ))}
+              </Link>
+            ))
+          )}
         </nav>
 
         {/* Mobile: menu toggle button */}
@@ -151,23 +241,67 @@ export function Navbar() {
               ))}
             </nav>
 
-            <div className="mt-4 flex flex-col gap-1 border-t border-zinc-200 pt-4">
-              {authLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className={cn(
-                    linkClasses(link.href, "rounded-md px-3 py-2.5 text-sm"),
-                    "flex items-center gap-2 hover:bg-zinc-50",
-                    link.label === "Sign Up" && "font-semibold text-zinc-900",
-                  )}
-                >
-                  {link.icon ? <link.icon className="size-4" aria-hidden /> : null}
-                  {link.label}
-                </Link>
-              ))}
-            </div>
+            {user ? (
+              <div className="mt-4 flex flex-col gap-3 border-t border-zinc-200 pt-4">
+                <div className="flex items-center gap-3 px-3">
+                  <Avatar size="default">
+                    {user.image ? (
+                      <AvatarImage src={user.image} alt={user.name ?? "User"} />
+                    ) : null}
+                    <AvatarFallback className="bg-brand/10 text-sm font-semibold text-brand">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-900">
+                      {user.name ?? "Signed in"}
+                    </p>
+                    <p className="truncate text-xs text-zinc-500">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className={cn(
+                      linkClasses("/profile", "rounded-md px-3 py-2.5 text-sm"),
+                      "flex items-center gap-2 hover:bg-zinc-50",
+                    )}
+                  >
+                    <User className="size-4" aria-hidden />
+                    Profile
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <LogOut className="size-4" aria-hidden />
+                    {loggingOut ? "Logging out..." : "Log out"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col gap-1 border-t border-zinc-200 pt-4">
+                {authLinks.map((link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    onClick={() => setMenuOpen(false)}
+                    className={cn(
+                      linkClasses(link.href, "rounded-md px-3 py-2.5 text-sm"),
+                      "hover:bg-zinc-50",
+                      link.label === "Sign Up" && "font-semibold text-zinc-900",
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </aside>
         </div>
       )}
@@ -223,12 +357,7 @@ export function NavbarFallback() {
               href={link.href}
               className="text-sm font-medium text-zinc-800 hover:text-brand"
             >
-              <span className="flex items-center gap-1.5">
-                {link.icon ? (
-                  <link.icon className="size-4" aria-hidden />
-                ) : null}
-                {link.label}
-              </span>
+              {link.label}
             </Link>
           ))}
         </nav>

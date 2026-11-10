@@ -11,17 +11,17 @@ import {
   Check,
   MapPin,
   Star,
-  Trash,
+
 
 } from "lucide-react";
 import {
   type Destination,
   type DestinationFetchResult,
 } from "@/lib/destination";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditDestinationPage from "./EditDestinationPage";
 import DeleteDestinationPage from "./deleteDestinationPage";
+import BookingCard from "../booking/bookingCard";
 
 
 
@@ -33,11 +33,7 @@ const highlights = [
   "Private beach dinner experience",
 ];
 
-const perks = [
-  "Free cancellation up to 7 days",
-  "Travel insurance included",
-  "24-7 customer support",
-];
+
 
 export function DestinationDetailSkeleton() {
   return (
@@ -108,13 +104,12 @@ export function DestinationDetail({
           href="/destinations"
           className="flex items-center gap-1.5 text-sm text-zinc-600 hover:text-zinc-900"
         >
-          <ChevronLeft className="si string|numberze-4" />
+          <ChevronLeft className="size-4" />
           Back to Destinations
         </Link>
         <div className="flex items-center gap-2">
-         
-            {destination && <EditDestinationPage destination = {destination} />}
-           {destination && <DeleteDestinationPage id={destination} />}
+           {destination && <EditDestinationPage destination={destination} />}
+           {destination && <DeleteDestinationPage id={destination.id} />}
          
         </div>
       </div>
@@ -204,37 +199,7 @@ export function DestinationDetail({
               </div>
             </div>
 
-            <aside className="w-full shrink-0 border border-zinc-200 bg-white p-5 md:w-60">
-              <p className="text-xs text-zinc-500">Starting from</p>
-              <p className="mt-1 text-2xl font-semibold text-brand">
-                ${destination.price}
-              </p>
-              <p className="mt-0.5 text-xs text-zinc-500">per person</p>
-
-              <input
-                type="date"
-                value={departureDate}
-                onChange={(event) => setDepartureDate(event.target.value)}
-                className="mt-4 h-9 w-full rounded-md border-transparent bg-zinc-50 px-3 text-sm text-zinc-700 outline-none focus:ring-3 focus:ring-ring/50"
-              />
-
-              <Button className="mt-4 h-10 w-full gap-1.5 rounded-md bg-brand text-sm text-white hover:bg-brand/90">
-                Book Now
-                <ArrowRight className="size-4" />
-              </Button>
-
-              <ul className="mt-4 space-y-2">
-                {perks.map((perk) => (
-                  <li
-                    key={perk}
-                    className="flex items-center gap-2 text-xs text-zinc-700"
-                  >
-                    <Check className="size-3 shrink-0 text-brand" />
-                    {perk}
-                  </li>
-                ))}
-              </ul>
-            </aside>
+            <BookingCard destination={destination} />
           </div>
         </>
       )}

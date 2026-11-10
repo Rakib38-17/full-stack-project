@@ -1,4 +1,7 @@
-'use client";'
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,20 +14,30 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Trash } from "lucide-react";
-import { Button } from "../ui/button";
-import { redirect } from "next/navigation";
-import { Destination } from "@/lib/destination";
+import { Button } from "@/components/ui/button";
+import { API_URL } from "@/lib/destination";
 
+const DeleteDestinationPage = ({ id }: { id: string }) => {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
 
-const DeleteDestinationPage = ({id}: {id: Destination}) => {
-
-    const handleDelete = async () => {
-        const res = await fetch(`http://localhost:5000/destination/${id}`, {
-            method: "DELETE",
-        });
-        const deta = await res.json();
-        redirect("/destinations");
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const response = await fetch(`${API_URL}/destination/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        setDeleting(false);
+        return;
+      }
+      // Deletion succeeded: leave the detail page and refresh the feed.
+      router.push("/destinations");
+      router.refresh();
+    } catch {
+      setDeleting(false);
     }
+  }
 
   return (
     <AlertDialog>
@@ -33,23 +46,25 @@ const DeleteDestinationPage = ({id}: {id: Destination}) => {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 gap-1.5 rounded-md border-red-300 px-3 text-xs text-red-600 hover:bg-red-50">
+            className="h-8 gap-1.5 rounded-md border-red-300 px-3 text-xs text-red-600 hover:bg-red-50"
+          >
             <Trash className="size-3.5" />
             Delete
           </Button>
-        }></AlertDialogTrigger>
+        }
+      />
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogTitle>Delete this destination?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete your
-            account from our servers.
+            This action cannot be undone. This will permanently remove the
+            destination from the catalog.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete}>
-            Continue
+          <AlertDialogAction disabled={deleting} onClick={handleDelete}>
+            {deleting ? "Deleting..." : "Continue"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

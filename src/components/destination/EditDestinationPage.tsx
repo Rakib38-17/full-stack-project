@@ -20,8 +20,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
-import { Destination } from "@/lib/destination";
-import { redirect } from "next/navigation";
+import { Destination, API_URL } from "@/lib/destination";
+import { useRouter } from "next/navigation";
 
 const categories = [
   "Beach",
@@ -38,6 +38,7 @@ const inputClasses =
   "h-10 rounded-md border-transparent bg-[#f7f9fb] text-sm placeholder:text-zinc-400";
 
 const EditDestinationPage = ({ destination }: { destination: Destination }) => {
+  const router = useRouter();
   const [form, setForm] = useState<Destination>(destination);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 
@@ -53,7 +54,7 @@ const EditDestinationPage = ({ destination }: { destination: Destination }) => {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const {id, ...updatedData} = form;
+    const { id, ...updatedData } = form;
 
     if (!form.name.trim() || !form.country.trim() || Number(form.price) <= 0) {
       setStatus("error");
@@ -61,17 +62,21 @@ const EditDestinationPage = ({ destination }: { destination: Destination }) => {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/destination/${destination.id}`, {
+      const res = await fetch(`${API_URL}/destination/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(updatedData),
-      });   
-      const data = await res.json();
-      console.log(data);
+      });
+      if (!res.ok) {
+        setStatus("error");
+        return;
+      }
       setStatus("success");
-      redirect("/destination-detail");
+      // Stay on the detail page and reload its server data so the
+      // updated destination shows up immediately.
+      router.refresh();
     } catch (error) {
       console.error(error);
       setStatus("error");
@@ -98,7 +103,7 @@ const EditDestinationPage = ({ destination }: { destination: Destination }) => {
               className="mx-auto mt-12 w-full max-w-md border border-zinc-200 bg-white p-7 shadow-sm">
               {status === "success" && (
                 <p className="mb-5 bg-green-50 px-3 py-2 text-sm text-green-700">
-                  Travel package added successfully.
+                  Changes saved successfully.
                 </p>
               )}
               {status === "error" && (
