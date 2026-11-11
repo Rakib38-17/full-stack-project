@@ -5,44 +5,17 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Check } from "lucide-react";
 import { API_URL, Destination } from "@/lib/destination";
 import { authClient } from "@/lib/auth-client";
+import {
+  isDestinationBooked,
+  rememberBooking,
+  type BookingStatus,
+} from "@/lib/bookings";
 
 const perks = [
   "Free cancellation up to 7 days",
   "Travel insurance included",
   "24-7 customer support",
 ];
-
-// The API only exposes POST /add-booking (no endpoint to list bookings),
-// so booked destinations are tracked per logged-in user in localStorage.
-function bookedStorageKey(userEmail: string) {
-  return `wanderlast:booked:${userEmail.toLowerCase()}`;
-}
-
-function getBookedIds(userEmail: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(
-      window.localStorage.getItem(bookedStorageKey(userEmail)) ?? "[]",
-    );
-    return Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function rememberBookedId(userEmail: string, destinationId: string) {
-  const bookedIds = getBookedIds(userEmail);
-  if (bookedIds.includes(destinationId)) return;
-  try {
-    window.localStorage.setItem(
-      bookedStorageKey(userEmail),
-      JSON.stringify([...bookedIds, destinationId]),
-    );
-  } catch {
-    // Storage unavailable: the booking still went through.
-  }
-}
 
 const BookingCard = ({ destination }: { destination: Destination }) => {
   const { data: session } = authClient.useSession();
@@ -62,7 +35,7 @@ const BookingCard = ({ destination }: { destination: Destination }) => {
       return;
     }
 
-    if (getBookedIds(user.email).includes(destination.id)) {
+    if (isDestinationBooked(user.email, destination.id)) {
       alert("This destination is already booked. You can book each destination only once.");
       return;
     }
@@ -84,11 +57,22 @@ const BookingCard = ({ destination }: { destination: Destination }) => {
         },
         body: JSON.stringify(bookingData),
       });
-      if (!res.ok || !getInsertedId(res)) {
+      const insertedId = await getInsertedId(res);
+      if (!res.ok || !insertedId) {
         alert("Booking failed. Please try again.");
         return;
       }
-      rememberBookedId(user.email, destination.id);
+      rememberBooking(user.email, {
+        destinationId: destination.id,
+        bookingId: insertedId,
+        name: destination.name,
+        country: destination.country,
+        price: destination.price,
+        image: destination.image,
+        departureDate: selectedDate,
+        dateBooked: new Date().toISOString(),
+        status: "Confirmed" satisfies BookingStatus,
+      });
       alert("Booking successful!");
     } catch {
       alert("Booking failed. Please check your connection and try again.");
@@ -140,17 +124,16 @@ const BookingCard = ({ destination }: { destination: Destination }) => {
 };
 
 // The API responds to a successful POST with {"acknowledged":true,"insertedId":"..."}.
-async function getInsertedId(res: Response): Promise<boolean> {
+async function getInsertedId(res: Response): Promise<string> {
   try {
     const data: unknown = await res.json();
-    return (
-      typeof data === "object" &&
-      data !== null &&
-      typeof (data as { insertedId?: unknown }).insertedId === "string" &&
-      (data as { insertedId: string }).insertedId !== ""
-    );
+    const insertedId =
+      typeof data === "object" && data !== null
+        ? (data as { insertedId?: unknown }).insertedId
+        : undefined;
+    return typeof insertedId === "string" ? insertedId : "";
   } catch {
-    return false;
+    return "";
   }
 }
 
